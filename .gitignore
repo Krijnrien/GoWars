@@ -75,3 +75,5 @@ fabric.properties
 .idea/sonarlint
 
 .idea
+
+shout-sql_key.json
