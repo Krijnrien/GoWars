@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	GoWars "github.com/krijnrien/GoWars/gw2api"
+	gw2api "github.com/krijnrien/GoWars/gw2api"
 )
 
 func main() {
 
-	api := GoWars.NewGW2Api()
+	api := gw2api.NewGW2Api()
 	b, _ := api.Build()
 	fmt.Println(b)
 }
