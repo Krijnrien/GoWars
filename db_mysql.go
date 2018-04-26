@@ -14,7 +14,7 @@ var createTableStatements = []string{
 	`CREATE DATABASE IF NOT EXISTS gw2 DEFAULT CHARACTER SET = 'utf8' DEFAULT COLLATE 'utf8_general_ci';`,
 	`USE gw2;`,
 	`CREATE TABLE IF NOT EXISTS item (
-		id INT UNSIGNED NOT NULL,
+		id INT UNSIGNED NOT NULL UNIQUE,
 		name VARCHAR(255) NULL,
 		description VARCHAR(255) NULL,
 		itemType VARCHAR(255) NULL,
