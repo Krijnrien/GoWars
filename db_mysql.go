@@ -1,4 +1,4 @@
-package main
+package GoWars
 
 import (
 	"database/sql"
@@ -7,12 +7,12 @@ import (
 	"fmt"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/krijnrien/GoWars/gw2api"
+	"github.com/krijnrien/GoWars/wrapper"
 )
 
 var createTableStatements = []string{
 	`CREATE DATABASE IF NOT EXISTS gw2 DEFAULT CHARACTER SET = 'utf8' DEFAULT COLLATE 'utf8_general_ci';`,
-	`USE gw2;`,
+	`USE gowars;`,
 	`CREATE TABLE IF NOT EXISTS item (
 		id INT UNSIGNED NOT NULL UNIQUE,
 		name VARCHAR(255) NULL,
@@ -30,12 +30,12 @@ var createTableStatements = []string{
 type mysqlDB struct {
 	conn *sql.DB
 
-	list   *sql.Stmt
-	listBy *sql.Stmt
-	insert *sql.Stmt
-	get    *sql.Stmt
-	update *sql.Stmt
-	delete *sql.Stmt
+	list        *sql.Stmt
+	listBy      *sql.Stmt
+	insert      *sql.Stmt
+	get         *sql.Stmt
+	update      *sql.Stmt
+	delete      *sql.Stmt
 }
 
 // Ensure mysqlDB conforms to the ItemDatabase interface.
@@ -86,7 +86,7 @@ func newMySQLDB(config MySQLConfig) (ItemDatabase, error) {
 		return nil, err
 	}
 
-	conn, err := sql.Open("mysql", config.dataStoreName("gw2"))
+	conn, err := sql.Open("mysql", config.dataStoreName("gowars"))
 	if err != nil {
 		return nil, fmt.Errorf("mysql: could not get a connection: %v", err)
 	}
@@ -100,7 +100,6 @@ func newMySQLDB(config MySQLConfig) (ItemDatabase, error) {
 	}
 
 	// Prepared statements. The actual SQL queries are in the code near the
-	// relevant method (e.g. addItem).
 	if db.list, err = conn.Prepare(listStatement); err != nil {
 		return nil, fmt.Errorf("mysql: prepare list: %v", err)
 	}
@@ -131,13 +130,13 @@ type rowScanner interface {
 }
 
 // scanItem reads a Item from a sql.Row or sql.Rows
-func scanItem(s rowScanner) (*gw2api.Item, error) {
+func scanItem(s rowScanner) (*wrapper.Item, error) {
 	var (
 		id          int
-		name   sql.NullString
+		name        sql.NullString
 		description sql.NullString
 		itemType    sql.NullString
-		level  int
+		level       int
 		rarity      sql.NullString
 		vendorValue int
 		icon        sql.NullString
@@ -147,7 +146,7 @@ func scanItem(s rowScanner) (*gw2api.Item, error) {
 		return nil, err
 	}
 
-	Item := &gw2api.Item{
+	Item := &wrapper.Item{
 		ID:          id,
 		Name:        name.String,
 		Description: description.String,
@@ -163,14 +162,14 @@ func scanItem(s rowScanner) (*gw2api.Item, error) {
 const listStatement = `SELECT * FROM item`
 
 // ListItems returns a list of Items, ordered by title.
-func (db *mysqlDB) ListItems() ([]*gw2api.Item, error) {
+func (db *mysqlDB) ListItems() ([]*wrapper.Item, error) {
 	rows, err := db.list.Query()
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var Items []*gw2api.Item
+	var Items []*wrapper.Item
 	for rows.Next() {
 		Item, err := scanItem(rows)
 		if err != nil {
@@ -186,7 +185,7 @@ func (db *mysqlDB) ListItems() ([]*gw2api.Item, error) {
 const getStatement = "SELECT * FROM item WHERE id = ?"
 
 // GetItem retrieves a Item by its ID.
-func (db *mysqlDB) GetItem(id int64) (*gw2api.Item, error) {
+func (db *mysqlDB) GetItem(id int) (*wrapper.Item, error) {
 	Item, err := scanItem(db.get.QueryRow(id))
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("mysql: could not find Item with id %d", id)
@@ -197,10 +196,11 @@ func (db *mysqlDB) GetItem(id int64) (*gw2api.Item, error) {
 	return Item, nil
 }
 
-const insertStatement = `INSERT INTO item (id, name, description, itemType, level, rarity, vendorValue, icon) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+//TODO Ignoring duplication error for now, check before inserting if exists or values changes?
+const insertStatement = `INSERT IGNORE INTO item (id, name, description, itemType, level, rarity, vendorValue, icon) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
 // AddItem saves a given Item, assigning it a new ID.
-func (db *mysqlDB) AddItem(b *gw2api.Item) (id int64, err error) {
+func (db *mysqlDB) AddItem(b *wrapper.Item) (id int64, err error) {
 	r, err := execAffectingOneRow(db.insert, b.ID, b.Name, b.Description, b.Type,
 		b.Level, b.Rarity, b.VendorValue, b.Icon)
 	if err != nil {
@@ -228,7 +228,7 @@ func (db *mysqlDB) DeleteItem(id int64) error {
 const updateStatement = `UPDATE item SET id=?, name=?, description=?, itemType=?, level=?, rarity=?, vendorValue=?, icon=? WHERE id = ?`
 
 // UpdateItem updates the entry for a given Item.
-func (db *mysqlDB) UpdateItem(b *gw2api.Item) error {
+func (db *mysqlDB) UpdateItem(b *wrapper.Item) error {
 	if b.ID == 0 {
 		return errors.New("mysql: Item with unassigned ID passed into updateItem")
 	}
@@ -240,7 +240,7 @@ func (db *mysqlDB) UpdateItem(b *gw2api.Item) error {
 
 // ensureTableExists checks the table exists. If not, it creates it.
 func (mysqlConfig MySQLConfig) ensureTableExists() error {
-	conn, err := sql.Open("mysql", mysqlConfig.dataStoreName(""))
+	conn, err := sql.Open("mysql", mysqlConfig.dataStoreName("gowars"))
 	if err != nil {
 		return fmt.Errorf("mysql: could not get a connection: %v", err)
 	}

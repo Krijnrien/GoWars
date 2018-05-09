@@ -1,4 +1,4 @@
-package main
+package GoWars
 
 import (
 	"log"
@@ -15,7 +15,7 @@ func init() {
 	DB, err = configureCloudSQL(cloudSQLConfig{
 		Username: "root",
 		Password: "burg1996",
-		Instance: "shout-gsc:europe-west1:gowars",
+		Instance: "gsc-gowars:europe-west1:gowars",
 	})
 	// [END cloudsql]
 
@@ -42,7 +42,7 @@ func configureCloudSQL(config cloudSQLConfig) (ItemDatabase, error) {
 	return newMySQLDB(MySQLConfig{
 		Username: config.Username,
 		Password: config.Password,
-		Host:     "35.205.43.106",
+		Host:     "35.205.161.100",
 		Port:     3306,
 	})
 }

@@ -2,23 +2,23 @@ package main
 
 import (
 "fmt"
-"github.com/krijnrien/GoWars/gw2api"
+"github.com/krijnrien/GoWars/wrapper"
 "strconv"
 )
 
 func main() {
-	api := gw2api.NewGW2Api()
+	api := wrapper.NewGW2Api()
 	b, _ := api.Items()
 
 	for _, element := range b{
 		fmt.Println(strconv.Itoa(element))
 	}
 
-	//api, _ := gw2api.NewAuthenticatedGW2Api("69D29983-607F-E143-BCD0-9DD0012AABB586611455-9747-490D-992A-CC2F188ACCF1")
+	//api, _ := wrapper.NewAuthenticatedGW2Api("69D29983-607F-E143-BCD0-9DD0012AABB586611455-9747-490D-992A-CC2F188ACCF1")
 	//b, _ := api.AccountBank()
 	//fmt.Println(b[20].ID)
 
-	//item := &gw2api.Item{
+	//item := &wrapper.Item{
 	//	ID:          12,
 	//	Name:        "name",
 	//	Description: "description",
