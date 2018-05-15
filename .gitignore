@@ -77,3 +77,6 @@ fabric.properties
 .idea
 
 shout-sql_key.json
+
+*.crt
+*.key

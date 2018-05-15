@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"github.com/krijnrien/GoWars/wrapper"
 	"fmt"
+	"log"
 )
 
 func main() {
@@ -27,5 +28,10 @@ func main() {
 		tmpl.Execute(w, items)
 	})
 
-	http.ListenAndServe(":8881", nil)
+	err := http.ListenAndServeTLS(":8881", "certificate.crt", "private.key", nil)
+	if err != nil {
+		fmt.Println(err)
+		log.Fatal("ListenAndServe: ", err)
+	}
+	//http.ListenAndServe(":8881", nil)
 }
