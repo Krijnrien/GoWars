@@ -1,34 +1,26 @@
-package GoWars
+package main
 
 import (
+	"github.com/krijnrien/GoWars/gowars_db"
 	"log"
 )
 
-var (
-	DB ItemDatabase
-)
-
-func init() {
-	var err error
-
-	// [START cloudsql]
-	DB, err = configureCloudSQL(cloudSQLConfig{
-		Username: "root",
-		Password: "burg1996",
-		Instance: "gsc-gowars:europe-west1:gowars",
-	})
-	// [END cloudsql]
-
-	if err != nil {
-		log.Fatal(err)
-	}
-}
+var DB *gowars_db.MySQLConn
 
 type cloudSQLConfig struct {
 	Username, Password, Instance string
 }
 
-func configureCloudSQL(config cloudSQLConfig) (ItemDatabase, error) {
+func init() {
+	var configErr error
+
+	DB, configErr = configureCloudSQL()
+	if configErr != nil {
+		log.Fatalln(configErr)
+	}
+}
+
+func configureCloudSQL() (*gowars_db.MySQLConn, error) {
 	//if os.Getenv("GAE_INSTANCE") != "" {
 	//	// Running in production.
 	//	return newMySQLDB(MySQLConfig{
@@ -38,11 +30,35 @@ func configureCloudSQL(config cloudSQLConfig) (ItemDatabase, error) {
 	//	})
 	//}
 
+	//
+
+	//config := cloudSQLConfig{
+	//	Username: "root",
+	//	Password: "burg1996",
+	//	//Instance: "gsc-gowars:europe-west1:gowars",
+	//}
+	//
+	//// Running locally.
+	//conf := gowars_db.MySQLConfig{
+	//	Username: config.Username,
+	//	Password: config.Password,
+	//	Host:     "35.205.161.100",
+	//	Port:     3306,
+	//}
+
+	config := cloudSQLConfig{
+		Username: "root",
+		Password: "",
+		//Instance: "gsc-gowars:europe-west1:gowars",
+	}
+
 	// Running locally.
-	return newMySQLDB(MySQLConfig{
+	conf := gowars_db.MySQLConfig{
 		Username: config.Username,
 		Password: config.Password,
-		Host:     "35.205.161.100",
+		Host:     "localhost",
 		Port:     3306,
-	})
+	}
+
+	return conf.NewMySQLDB()
 }
