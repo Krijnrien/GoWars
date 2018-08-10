@@ -49,7 +49,7 @@ func (db *MySQLConn) PrepareItemStatements() (error) {
 	if db.Item.get, err = db.Conn.Prepare(getItemStatement); err != nil {
 		return fmt.Errorf("mysql: prepare get: %v", err)
 	}
-	if db.Item.insert, err = db.Conn.Prepare(insertItemStatement); err != nil {
+	if db.Item.insert, err = db.Conn.Prepare(InsertItemStatement); err != nil {
 		return fmt.Errorf("mysql: prepare insert: %v", err)
 	}
 	if db.Item.update, err = db.Conn.Prepare(updateItemStatement); err != nil {
@@ -123,7 +123,7 @@ func (db *itemDatabase) GetItem(id int) (*gw2api.Item, error) {
 }
 
 //TODO Ignoring duplication error for now, check before inserting if exists or values changes?
-const insertItemStatement = `INSERT IGNORE INTO item (id, name, description, itemType, level, rarity, vendorValue, icon) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+const InsertItemStatement = `INSERT IGNORE INTO item (id, name, description, itemType, level, rarity, vendorValue, icon) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
 // AddItem saves a given Item, assigning it a new ID.
 func (db *itemDatabase) AddItem(b *gw2api.Item) (id int64, err error) {

@@ -8,11 +8,85 @@ import (
 
 	"github.com/krijnrien/GoWars/gw2api"
 	"github.com/krijnrien/GoWars/gw2spidy"
+	"github.com/krijnrien/GoWars/gowars_db"
+	"time"
+	"os"
+	"encoding/csv"
+	"strconv"
 )
 
 type chanResult struct {
 	returnId int
 	error    error
+}
+
+type job struct {
+	articlePrice gw2api.ArticlePrice
+	write        *csv.Writer
+}
+
+var mu sync.Mutex
+var prices []gw2api.ArticlePrice
+
+func doWork(j job) {
+	mu.Lock()
+	defer mu.Unlock()
+	s := []string{
+		strconv.Itoa(j.articlePrice.ID),
+		strconv.Itoa(j.articlePrice.Sells.UnitPrice),
+		strconv.Itoa(j.articlePrice.Sells.Quantity),
+		strconv.Itoa(j.articlePrice.Buys.UnitPrice),
+		strconv.Itoa(j.articlePrice.Buys.Quantity),
+	}
+
+	j.write.Write(s)
+}
+
+func getPrices(maxQueueSize *int, maxWorkers *int) {
+	defer timeTrack(time.Now(), "main")
+
+	// create job channel
+	jobs := make(chan job, *maxQueueSize)
+
+	// create workers
+	for i := 1; i <= *maxWorkers; i++ {
+		go func(i int) {
+			for j := range jobs {
+				doWork(j)
+			}
+		}(i)
+	}
+
+	api := gw2api.NewGW2Api()
+	allCommercePriceIds, fetchPricesErr := api.CommercePrices()
+	if fetchPricesErr != nil {
+		log.Fatalln(fetchPricesErr)
+	}
+
+	pageSize := 200
+	totalPages := len(allCommercePriceIds) / pageSize
+
+	file, err := os.OpenFile("result.csv", os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	for i := 0; i <= totalPages; i++ {
+		articlePrices, CommercePricePagesErr := api.CommercePricePages(i, pageSize)
+		if CommercePricePagesErr != nil {
+			log.Fatalln(CommercePricePagesErr)
+		}
+		for _, articlePrice := range articlePrices {
+			go func(articlePrice gw2api.ArticlePrice) {
+				jobs <- job{articlePrice, writer}
+			}(articlePrice)
+		}
+	}
+	fmt.Println(len(prices))
 }
 
 func getAllCurrentCommercePrices() {
@@ -22,73 +96,49 @@ func getAllCurrentCommercePrices() {
 		log.Fatalln(fetchPricesErr)
 	}
 
+	//TODO Make config variable, ENV?
 	pageSize := 100
 	totalPages := len(allCommercePriceIds) / pageSize
 
-	//in := make(chan []gw2api.ArticlePrice)
-	//out := make(chan chanResult)
-	//var m sync.Mutex
+	var wg sync.WaitGroup
+	var m sync.Mutex
 
-
-	count := 1
 	for i := 0; i <= totalPages; i++ {
 		articlePrices, CommercePricePagesErr := api.CommercePricePages(i, pageSize)
 		if CommercePricePagesErr != nil {
 			log.Fatalln(CommercePricePagesErr)
 		}
 
-		go TempinsertNewCommerPrice(articlePrices)
+		go func(articlePrices []gw2api.ArticlePrice) {
+			for _, articlePrice := range articlePrices {
+				go func(articlePrice gw2api.ArticlePrice) {
+					wg.Add(1)
+					returnId, insertErr := insertNewCommercePrice(articlePrice, &m)
+					if insertErr != nil {
+						//TODO replace with log?
+						fmt.Println(insertErr)
+					}
+					fmt.Printf("%v: inserted new item price of id: %v\n", time.Now(), returnId)
+					wg.Done()
+				}(articlePrice)
+			}
 
-
-		//go insertNewCommerPrice(in, out, &m)
-		//in <- articlePrices
-		//
-		//result := <-out
-		//if result.error != nil {
-		//	fmt.Println(result.error)
-		//}
-
-		//fmt.Printf("Fetched & inserted new commerce price of item id: %v\n", result.returnId)
-		//count = count + 50
+		}(articlePrices)
 	}
-	//fmt.Println(articlePrices.)
-	fmt.Printf("Fetched & intersted total of %v items\n", count)
+	wg.Wait()
+	fmt.Println("Finished fetching & inserting new prices of all commerce items")
+	// Fluh any remainder insert statement prices that did not hit the interval flush
 	DB.FlushAll()
 }
 
-func TempinsertNewCommerPrice(articlePrices []gw2api.ArticlePrice) {
-	for _, articlePrice := range articlePrices {
-		fmt.Println(articlePrice)
-		//insertErr := DB.BatchInsert(gowars_db.InsertPriceNowStatement, articlePrice.ID, articlePrice.Buys.Quantity, articlePrice.Buys.UnitPrice, articlePrice.Sells.Quantity, articlePrice.Sells.Quantity)
-		//if insertErr != nil {
-		//	out <- chanResult{
-		//		returnId: articlePrice.ID,
-		//		error:    fmt.Errorf("error batchInsert: %v", insertErr),
-		//	}
-		//	return
-		//} else{
+func insertNewCommercePrice(articlePrice gw2api.ArticlePrice, m *sync.Mutex) (int, error) {
+	m.Lock()
+	insertErr := DB.BatchInsert(gowars_db.InsertPriceNowStatement, articlePrice.ID, articlePrice.Buys.Quantity, articlePrice.Buys.UnitPrice, articlePrice.Sells.Quantity, articlePrice.Sells.Quantity)
+	m.Unlock()
+	if insertErr != nil {
+		return articlePrice.ID, fmt.Errorf("error batchInsert: %v\n", insertErr)
 	}
-}
-
-func insertNewCommerPrice(in <-chan []gw2api.ArticlePrice, out chan<- chanResult, m *sync.Mutex) {
-	var articlePrices = <-in
-	for _, articlePrice := range articlePrices {
-		m.Lock()
-		//insertErr := DB.BatchInsert(gowars_db.InsertPriceNowStatement, articlePrice.ID, articlePrice.Buys.Quantity, articlePrice.Buys.UnitPrice, articlePrice.Sells.Quantity, articlePrice.Sells.Quantity)
-		//if insertErr != nil {
-		//	out <- chanResult{
-		//		returnId: articlePrice.ID,
-		//		error:    fmt.Errorf("error batchInsert: %v", insertErr),
-		//	}
-		//	return
-		//} else{
-			out <- chanResult{
-				returnId: articlePrice.ID,
-				error:    nil,
-			//}
-		}
-		m.Unlock()
-	}
+	return articlePrice.ID, nil
 }
 
 // Build complete commerce price history of all items. Is only supposed to once, populating the database.
@@ -147,7 +197,7 @@ func insertFullCommerceHistoryById(in <-chan int, out chan<- chanResult, m *sync
 				cancelerr = true
 				out <- chanResult{
 					returnId: id,
-					error:    fmt.Errorf("error fullHistoryBuyListing: %v", fetchErr),
+					error:    fmt.Errorf("error fullHistoryBuyListing: %v\n", fetchErr),
 				}
 				return
 			}
@@ -166,7 +216,7 @@ func insertFullCommerceHistoryById(in <-chan int, out chan<- chanResult, m *sync
 				cancelerr = true
 				out <- chanResult{
 					returnId: id,
-					error:    fmt.Errorf("error fullHistorySellListing: %v", fetchErr),
+					error:    fmt.Errorf("error fullHistorySellListing: %v\n", fetchErr),
 				}
 				return
 			}
@@ -198,7 +248,7 @@ func insertFullCommerceHistoryById(in <-chan int, out chan<- chanResult, m *sync
 					if insertErr != nil {
 						out <- chanResult{
 							returnId: id,
-							error:    fmt.Errorf("error batchInsert: %v", insertErr),
+							error:    fmt.Errorf("error batchInsert: %v\n", insertErr),
 						}
 						return
 					}

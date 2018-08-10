@@ -107,7 +107,7 @@ func (db *priceDatabase) GetDistinctPriceHistoryIds() ([]int, error) {
 }
 
 const InsertPriceStatement = `INSERT INTO price (itemid, fetched_datetime, buys_quantity, buys_unit_price, sells_quantity, sells_unit_price) VALUES (?, ?, ?, ?, ?, ?)`
-const InsertPriceNowStatement = `INSERT INTO price (itemid, fetched_datetime, buys_quantity, buys_unit_price, sells_quantity, sells_unit_price) VALUES (?, now(), ?, ?, ?, ?)`
+const InsertPriceNowStatement = `INSERT IGNORE INTO price (itemid, fetched_datetime, buys_quantity, buys_unit_price, sells_quantity, sells_unit_price) VALUES (?, now(), ?, ?, ?, ?)`
 
 // AddItem saves a given Item, assigning it a new ID.
 func (db *priceDatabase) AddPrice(b *gw2api.ArticlePriceTimed) (id int64, addErr error) {
